@@ -123,23 +123,9 @@ def main():
                 if success:
                     marker_id = markerIds[i][0] if markerIds[i].ndim > 0 else markerIds[i]
                     
-                    print(f"Marker ID: {marker_id}")
-                    print(f"rvec: {rvec.flatten()}")
-                    print(f"tvec: {tvec.flatten()}")
-                    
-                    # 计算 ArUco 码 y 轴与相机中轴线的夹角
-                    # 将旋转向量转换为旋转矩阵
-                    R, _ = cv2.Rodrigues(rvec)
-                    # ArUco 码的 y 轴在相机坐标系中的向量（旋转矩阵的第二列）
-                    aruco_y_axis = R[:, 1]
-                    # 相机中轴线向量（假设相机坐标系的 z 轴指向前方）
-                    camera_axis = np.array([0, 0, 1], dtype=np.float32)
-                    # 计算两个向量的夹角
-                    dot_product = np.dot(aruco_y_axis, camera_axis)
-                    norm_product = np.linalg.norm(aruco_y_axis) * np.linalg.norm(camera_axis)
-                    angle_rad = np.arccos(np.clip(dot_product / norm_product, -1.0, 1.0))
-                    angle_deg = np.degrees(angle_rad)
-                    print(f"ArUco y轴与相机中轴线夹角: {angle_deg:.2f} 度")
+                    # 计算相机到标记中心的距离（使用tvec的范数）
+                    distance = np.linalg.norm(tvec)
+                    print(f"Marker ID: {marker_id}, 距离: {distance:.3f} 米")
                     
                     # 绘制相对位姿
                     cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.1)
