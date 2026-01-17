@@ -4,7 +4,7 @@ import numpy as np
 
 def main():
     # 定义ArUco字典和参数
-    dictionary = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+    dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
     parameters = aruco.DetectorParameters()
     
     # 优化检测参数
