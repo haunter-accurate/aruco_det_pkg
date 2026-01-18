@@ -82,15 +82,21 @@ def main():
     
     print("相机已打开，开始距离标定...")
     print("按下 'q' 键退出")
+    print("按下 'c' 键开始以当前帧进行标定")
     print("请按照以下步骤操作：")
     print("1. 将ArUco码放置在已知距离处")
-    print("2. 输入实际距离（单位：米）")
-    print("3. 按回车确认")
-    print("4. 重复步骤1-3，至少测量3个不同距离")
+    print("2. 调整相机位置，确保标记清晰可见")
+    print("3. 按下 'c' 键开始标定当前帧")
+    print("4. 输入实际距离（单位：米）")
+    print("5. 按回车确认")
+    print("6. 重复步骤1-5，至少测量3个不同距离")
     
     # 存储实际距离和计算距离
     actual_distances = []
     calculated_distances = []
+    
+    # 标定状态
+    calibration_mode = False
     
     while True:
         # 读取相机帧
@@ -139,18 +145,23 @@ def main():
                     # 绘制相对位姿
                     cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.1)
                     
-                    # 提示用户输入实际距离
-                    actual_distance = input("请输入实际距离（单位：米），输入'q'退出：")
-                    if actual_distance.lower() == 'q':
-                        break
-                    
-                    try:
-                        actual_distance = float(actual_distance)
-                        actual_distances.append(actual_distance)
-                        calculated_distances.append(distance)
-                        print(f"已记录：实际距离={actual_distance:.3f}米, 计算距离={distance:.3f}米")
-                    except ValueError:
-                        print("输入无效，请输入数字")
+                    # 只有在标定模式下才要求输入实际距离
+                    if calibration_mode:
+                        # 提示用户输入实际距离
+                        actual_distance = input("请输入实际距离（单位：米），输入'q'退出：")
+                        if actual_distance.lower() == 'q':
+                            break
+                        
+                        try:
+                            actual_distance = float(actual_distance)
+                            actual_distances.append(actual_distance)
+                            calculated_distances.append(distance)
+                            print(f"已记录：实际距离={actual_distance:.3f}米, 计算距离={distance:.3f}米")
+                        except ValueError:
+                            print("输入无效，请输入数字")
+                        
+                        # 退出标定模式，等待下一次按下'c'键
+                        calibration_mode = False
                 else:
                     print(f"Marker ID: {markerIds[i][0]} 位姿估计失败")
         else:
@@ -161,9 +172,13 @@ def main():
         # 显示图像
         cv2.imshow("ArUco Distance Calibration", undistorted_frame)
         
-        # 按下 'q' 键退出循环
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        # 检查键盘输入
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        elif key == ord('c'):
+            print("开始标定当前帧...")
+            calibration_mode = True
     
     # 释放资源
     cap.release()
