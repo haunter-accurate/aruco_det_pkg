@@ -7,26 +7,26 @@ def main():
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
     parameters = aruco.DetectorParameters()
     
-    # 优化检测参数
+    # 优化检测参数，提高在树莓派上的检测率
     parameters.adaptiveThreshWinSizeMin = 3
     parameters.adaptiveThreshWinSizeMax = 23
     parameters.adaptiveThreshWinSizeStep = 10
     parameters.adaptiveThreshConstant = 7
-    parameters.minMarkerPerimeterRate = 0.03
+    parameters.minMarkerPerimeterRate = 0.02  # 减小阈值，提高小标记的检测率
     parameters.maxMarkerPerimeterRate = 4.0
     parameters.polygonalApproxAccuracyRate = 0.05
     parameters.minCornerDistanceRate = 0.05
-    parameters.minDistanceToBorder = 3
+    parameters.minDistanceToBorder = 2  # 减小边界距离要求
     parameters.minMarkerDistanceRate = 0.05
     parameters.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
-    parameters.cornerRefinementWinSize = 5
-    parameters.cornerRefinementMaxIterations = 30
+    parameters.cornerRefinementWinSize = 3  # 减小窗口大小，提高在低分辨率图像上的性能
+    parameters.cornerRefinementMaxIterations = 20  # 减少迭代次数，提高速度
     parameters.cornerRefinementMinAccuracy = 0.1
     parameters.markerBorderBits = 1
     parameters.perspectiveRemovePixelPerCell = 4
     parameters.perspectiveRemoveIgnoredMarginPerCell = 0.13
-    parameters.maxErroneousBitsInBorderRate = 0.35
-    parameters.minOtsuStdDev = 5.0
+    parameters.maxErroneousBitsInBorderRate = 0.4  # 增加容错率
+    parameters.minOtsuStdDev = 3.0  # 减小阈值，提高在不同光照下的检测率
     parameters.errorCorrectionRate = 0.6
     
     # 尝试加载自定义相机标定参数
@@ -71,13 +71,10 @@ def main():
         print("未找到距离标定参数，使用原始计算值")
     
     # 打开相机
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)  # 树莓派通常使用相机索引 0
     if not cap.isOpened():
-        print("无法打开相机，尝试使用相机索引 0")
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("无法打开相机")
-            return -1
+        print("无法打开相机")
+        return -1
     
     # 获取相机图像尺寸并计算矫正映射
     ret, frame = cap.read()
