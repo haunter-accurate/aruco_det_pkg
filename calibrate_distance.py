@@ -4,7 +4,7 @@ import numpy as np
 
 def main():
     # 定义ArUco字典和参数
-    dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
+    dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
     parameters = aruco.DetectorParameters()
     
     # 优化检测参数
@@ -59,17 +59,6 @@ def main():
         
         distCoeffs = np.array([k1, k2, p1, p2, k3], dtype=np.float64)
     
-    # 尝试加载距离标定参数
-    distance_calibration = None
-    try:
-        with np.load('distance_calibration_data.npz') as data:
-            a = data['a']
-            b = data['b']
-            distance_calibration = (a, b)
-        print(f"成功加载距离标定参数：a={a:.6f}, b={b:.6f}")
-    except FileNotFoundError:
-        print("未找到距离标定参数，使用原始计算值")
-    
     # 打开相机
     cap = cv2.VideoCapture(1)
     if not cap.isOpened():
@@ -91,8 +80,17 @@ def main():
     newCameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, distCoeffs, (w, h), 1, (w, h))
     mapx, mapy = cv2.initUndistortRectifyMap(cameraMatrix, distCoeffs, None, newCameraMatrix, (w, h), 5)
     
-    print("相机已打开，开始检测 ArUco 标记...")
+    print("相机已打开，开始距离标定...")
     print("按下 'q' 键退出")
+    print("请按照以下步骤操作：")
+    print("1. 将ArUco码放置在已知距离处")
+    print("2. 输入实际距离（单位：米）")
+    print("3. 按回车确认")
+    print("4. 重复步骤1-3，至少测量3个不同距离")
+    
+    # 存储实际距离和计算距离
+    actual_distances = []
+    calculated_distances = []
     
     while True:
         # 读取相机帧
@@ -136,32 +134,23 @@ def main():
                     
                     # 计算相机到标记中心的距离（使用tvec的范数）
                     distance = np.linalg.norm(tvec)
-                    
-                    # 如果有距离标定参数，使用标定参数校正距离
-                    calibrated_distance = distance
-                    if distance_calibration is not None:
-                        a, b = distance_calibration
-                        calibrated_distance = a * distance + b
-                        print(f"Marker ID: {marker_id}, 原始距离: {distance:.3f} 米, 校正后距离: {calibrated_distance:.3f} 米")
-                    else:
-                        print(f"Marker ID: {marker_id}, 距离: {distance:.3f} 米")
-                    
-                    # aruco码在摄像机坐标系中的坐标（就是tvec）
-                    aruco_in_camera = tvec.flatten()
-                    print(f"Marker ID: {marker_id}, 在摄像机坐标系中的坐标: ({aruco_in_camera[0]:.3f}, {aruco_in_camera[1]:.3f}, {aruco_in_camera[2]:.3f}) 米")
-                    
-                    # 计算摄像机在aruco码坐标系中的坐标
-                    # 将旋转向量转换为旋转矩阵
-                    R, _ = cv2.Rodrigues(rvec)
-                    # 计算旋转矩阵的转置
-                    R_T = R.T
-                    # 计算摄像机在aruco码坐标系中的坐标
-                    camera_in_aruco = -R_T @ tvec
-                    camera_in_aruco = camera_in_aruco.flatten()
-                    print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
+                    print(f"Marker ID: {marker_id}, 计算距离: {distance:.3f} 米")
                     
                     # 绘制相对位姿
                     cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.1)
+                    
+                    # 提示用户输入实际距离
+                    actual_distance = input("请输入实际距离（单位：米），输入'q'退出：")
+                    if actual_distance.lower() == 'q':
+                        break
+                    
+                    try:
+                        actual_distance = float(actual_distance)
+                        actual_distances.append(actual_distance)
+                        calculated_distances.append(distance)
+                        print(f"已记录：实际距离={actual_distance:.3f}米, 计算距离={distance:.3f}米")
+                    except ValueError:
+                        print("输入无效，请输入数字")
                 else:
                     print(f"Marker ID: {markerIds[i][0]} 位姿估计失败")
         else:
@@ -170,7 +159,7 @@ def main():
             print("未检测到标记，显示被拒绝的候选标记")
         
         # 显示图像
-        cv2.imshow("ArUco Detection (Undistorted)", undistorted_frame)
+        cv2.imshow("ArUco Distance Calibration", undistorted_frame)
         
         # 按下 'q' 键退出循环
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -179,6 +168,40 @@ def main():
     # 释放资源
     cap.release()
     cv2.destroyAllWindows()
+    
+    # 计算标定系数
+    if len(actual_distances) >= 3:
+        print("\n开始计算标定系数...")
+        print(f"测量数据：{len(actual_distances)} 个点")
+        
+        # 使用线性回归计算标定系数
+        # 假设 actual_distance = a * calculated_distance + b
+        A = np.vstack([calculated_distances, np.ones(len(calculated_distances))]).T
+        a, b = np.linalg.lstsq(A, actual_distances, rcond=None)[0]
+        
+        print(f"标定系数：a = {a:.6f}, b = {b:.6f}")
+        print(f"校正公式：实际距离 = {a:.6f} * 计算距离 + {b:.6f}")
+        
+        # 计算误差
+        predicted_distances = [a * d + b for d in calculated_distances]
+        errors = [abs(p - a) for p, a in zip(predicted_distances, actual_distances)]
+        mean_error = np.mean(errors)
+        max_error = np.max(errors)
+        
+        print(f"平均误差：{mean_error:.3f} 米")
+        print(f"最大误差：{max_error:.3f} 米")
+        
+        # 保存标定系数
+        np.savez('distance_calibration_data.npz', a=a, b=b)
+        print("标定系数已保存到 distance_calibration_data.npz")
+        
+        # 显示校正前后的对比
+        print("\n校正前后对比：")
+        for i in range(len(actual_distances)):
+            corrected = a * calculated_distances[i] + b
+            print(f"实际距离：{actual_distances[i]:.3f}米, 计算距离：{calculated_distances[i]:.3f}米, 校正后：{corrected:.3f}米")
+    else:
+        print("测量数据不足，无法计算标定系数")
 
 if __name__ == "__main__":
     main()
