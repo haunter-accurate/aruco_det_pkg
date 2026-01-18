@@ -1,8 +1,17 @@
 import cv2
 import cv2.aruco as aruco
 import numpy as np
+import argparse
 
 def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='ArUco Distance Calibration for Raspberry Pi')
+    parser.add_argument('--headless', action='store_true', help='Run in headless mode (no GUI)')
+    args = parser.parse_args()
+    
+    # 获取无头模式状态
+    headless_mode = args.headless
+    print(f"Running in {'headless' if headless_mode else 'normal'} mode")
     # 定义ArUco字典和参数
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
     parameters = aruco.DetectorParameters()
@@ -139,8 +148,10 @@ def main():
                     distance = np.linalg.norm(tvec)
                     print(f"Marker ID: {marker_id}, 计算距离: {distance:.3f} 米")
                     
-                    # 绘制相对位姿
-                    cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.05)
+                    # 非无头模式下绘制相对位姿
+                    if not headless_mode:
+                        # 绘制相对位姿
+                        cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.05)
                     
                     # 只有在标定模式下才要求输入实际距离
                     if calibration_mode:
@@ -162,20 +173,33 @@ def main():
                 else:
                     print(f"Marker ID: {markerIds[i][0]} 位姿估计失败")
         else:
-            # 绘制被拒绝的候选标记（用于调试）
-            aruco.drawDetectedMarkers(undistorted_frame, rejectedCandidates, None, (100, 0, 255))
+            # 非无头模式下绘制被拒绝的候选标记
+            if not headless_mode:
+                # 绘制被拒绝的候选标记（用于调试）
+                aruco.drawDetectedMarkers(undistorted_frame, rejectedCandidates, None, (100, 0, 255))
             print("未检测到标记，显示被拒绝的候选标记")
         
-        # 显示图像
-        cv2.imshow("ArUco Distance Calibration", undistorted_frame)
-        
-        # 检查键盘输入
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('c'):
-            print("开始标定当前帧...")
-            calibration_mode = True
+        # 非无头模式下显示图像和处理按键
+        if not headless_mode:
+            # 显示图像
+            cv2.imshow("ArUco Distance Calibration", undistorted_frame)
+            
+            # 检查键盘输入
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            elif key == ord('c'):
+                print("开始标定当前帧...")
+                calibration_mode = True
+        else:
+            # 无头模式下，每100毫秒检查一次是否退出
+            import time
+            time.sleep(0.1)
+            # 无头模式下，自动进入标定模式（因为无法通过键盘触发）
+            # 这里可以根据需要修改为其他触发方式
+            if not calibration_mode and markerIds is not None and len(markerIds) > 0:
+                print("无头模式下自动进入标定模式...")
+                calibration_mode = True
     
     # 释放资源
     cap.release()

@@ -1,8 +1,17 @@
 import cv2
 import cv2.aruco as aruco
 import numpy as np
+import argparse
 
 def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='ArUco Detection for Raspberry Pi')
+    parser.add_argument('--headless', action='store_true', help='Run in headless mode (no GUI)')
+    args = parser.parse_args()
+    
+    # 获取无头模式状态
+    headless_mode = args.headless
+    print(f"Running in {'headless' if headless_mode else 'normal'} mode")
     # 定义ArUco字典和参数
     dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
     parameters = aruco.DetectorParameters()
@@ -184,48 +193,59 @@ def main():
                         camera_in_aruco = camera_in_aruco.flatten()
                         print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
                     
-                    # 绘制相对位姿，缩小轴的大小以避免超出帧范围
-                    cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.05)
-                    
-                    # 在图像上绘制校正后的坐标信息
-                    # 获取标记的左上角坐标作为文本位置
-                    if markerCorners[i].size > 0:
-                        corner_x = int(markerCorners[i][0][0][0])
-                        corner_y = int(markerCorners[i][0][0][1])
+                    # 非无头模式下绘制相对位姿和文本
+                    if not headless_mode:
+                        # 绘制相对位姿，缩小轴的大小以避免超出帧范围
+                        cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.05)
                         
-                        # 准备要显示的文本
-                        if distance_calibration is not None:
-                            text = f"ID:{marker_id}\nX:{calibrated_aruco_in_camera[0]:.2f}\nY:{calibrated_aruco_in_camera[1]:.2f}\nZ:{calibrated_aruco_in_camera[2]:.2f}"
-                        else:
-                            text = f"ID:{marker_id}\nX:{tvec.flatten()[0]:.2f}\nY:{tvec.flatten()[1]:.2f}\nZ:{tvec.flatten()[2]:.2f}"
-                        
-                        # 绘制文本
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        font_scale = 0.4
-                        font_thickness = 1
-                        text_color = (0, 255, 0)  # 绿色
-                        line_type = cv2.LINE_AA
-                        
-                        # 逐行绘制文本
-                        lines = text.split('\n')
-                        for j, line in enumerate(lines):
-                            text_size = cv2.getTextSize(line, font, font_scale, font_thickness)[0]
-                            text_x = corner_x + 10
-                            text_y = corner_y + (j + 1) * (text_size[1] + 5)
-                            cv2.putText(undistorted_frame, line, (text_x, text_y), font, font_scale, text_color, font_thickness, line_type)
+                        # 在图像上绘制校正后的坐标信息
+                        # 获取标记的左上角坐标作为文本位置
+                        if markerCorners[i].size > 0:
+                            corner_x = int(markerCorners[i][0][0][0])
+                            corner_y = int(markerCorners[i][0][0][1])
+                            
+                            # 准备要显示的文本
+                            if distance_calibration is not None:
+                                text = f"ID:{marker_id}\nX:{calibrated_aruco_in_camera[0]:.2f}\nY:{calibrated_aruco_in_camera[1]:.2f}\nZ:{calibrated_aruco_in_camera[2]:.2f}"
+                            else:
+                                text = f"ID:{marker_id}\nX:{tvec.flatten()[0]:.2f}\nY:{tvec.flatten()[1]:.2f}\nZ:{tvec.flatten()[2]:.2f}"
+                            
+                            # 绘制文本
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            font_scale = 0.4
+                            font_thickness = 1
+                            text_color = (0, 255, 0)  # 绿色
+                            line_type = cv2.LINE_AA
+                            
+                            # 逐行绘制文本
+                            lines = text.split('\n')
+                            for j, line in enumerate(lines):
+                                text_size = cv2.getTextSize(line, font, font_scale, font_thickness)[0]
+                                text_x = corner_x + 10
+                                text_y = corner_y + (j + 1) * (text_size[1] + 5)
+                                cv2.putText(undistorted_frame, line, (text_x, text_y), font, font_scale, text_color, font_thickness, line_type)
                 else:
                     print(f"Marker ID: {markerIds[i][0]} 位姿估计失败")
         else:
-            # 绘制被拒绝的候选标记（用于调试）
-            aruco.drawDetectedMarkers(undistorted_frame, rejectedCandidates, None, (100, 0, 255))
+            # 非无头模式下绘制被拒绝的候选标记
+            if not headless_mode:
+                # 绘制被拒绝的候选标记（用于调试）
+                aruco.drawDetectedMarkers(undistorted_frame, rejectedCandidates, None, (100, 0, 255))
             print("未检测到标记，显示被拒绝的候选标记")
         
-        # 显示图像
-        cv2.imshow("ArUco Detection (Undistorted)", undistorted_frame)
-        
-        # 按下 'q' 键退出循环
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # 非无头模式下显示图像和处理按键
+        if not headless_mode:
+            # 显示图像
+            cv2.imshow("ArUco Detection (Undistorted)", undistorted_frame)
+            
+            # 按下 'q' 键退出循环
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        else:
+            # 无头模式下，每100毫秒检查一次是否退出
+            import time
+            time.sleep(0.1)
+            # 这里可以添加其他退出条件，比如检测到特定标记或时间限制
     
     # 释放资源
     cap.release()
