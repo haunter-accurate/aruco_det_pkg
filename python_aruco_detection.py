@@ -137,31 +137,85 @@ def main():
                     # 计算相机到标记中心的距离（使用tvec的范数）
                     distance = np.linalg.norm(tvec)
                     
-                    # 如果有距离标定参数，使用标定参数校正距离
+                    # 如果有距离标定参数，使用标定参数校正距离和坐标
                     calibrated_distance = distance
+                    calibrated_aruco_in_camera = tvec.flatten()
+                    calibrated_camera_in_aruco = None
+                    
                     if distance_calibration is not None:
                         a, b = distance_calibration
                         calibrated_distance = a * distance + b
                         print(f"Marker ID: {marker_id}, 原始距离: {distance:.3f} 米, 校正后距离: {calibrated_distance:.3f} 米")
+                        
+                        # 计算缩放因子
+                        if distance > 0:
+                            scale_factor = calibrated_distance / distance
+                        else:
+                            scale_factor = 1.0
+                        
+                        # 校正aruco码在摄像机坐标系中的坐标
+                        calibrated_aruco_in_camera = (tvec.flatten() * scale_factor)
+                        print(f"Marker ID: {marker_id}, 原始摄像机坐标系坐标: ({tvec.flatten()[0]:.3f}, {tvec.flatten()[1]:.3f}, {tvec.flatten()[2]:.3f}) 米")
+                        print(f"Marker ID: {marker_id}, 校正后摄像机坐标系坐标: ({calibrated_aruco_in_camera[0]:.3f}, {calibrated_aruco_in_camera[1]:.3f}, {calibrated_aruco_in_camera[2]:.3f}) 米")
+                        
+                        # 计算并校正摄像机在aruco码坐标系中的坐标
+                        # 将旋转向量转换为旋转矩阵
+                        R, _ = cv2.Rodrigues(rvec)
+                        # 计算旋转矩阵的转置
+                        R_T = R.T
+                        # 计算摄像机在aruco码坐标系中的坐标
+                        camera_in_aruco = -R_T @ tvec
+                        camera_in_aruco = camera_in_aruco.flatten()
+                        # 校正摄像机在aruco码坐标系中的坐标
+                        calibrated_camera_in_aruco = camera_in_aruco * scale_factor
+                        print(f"Marker ID: {marker_id}, 原始aruco码坐标系坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
+                        print(f"Marker ID: {marker_id}, 校正后aruco码坐标系坐标: ({calibrated_camera_in_aruco[0]:.3f}, {calibrated_camera_in_aruco[1]:.3f}, {calibrated_camera_in_aruco[2]:.3f}) 米")
                     else:
                         print(f"Marker ID: {marker_id}, 距离: {distance:.3f} 米")
-                    
-                    # aruco码在摄像机坐标系中的坐标（就是tvec）
-                    aruco_in_camera = tvec.flatten()
-                    print(f"Marker ID: {marker_id}, 在摄像机坐标系中的坐标: ({aruco_in_camera[0]:.3f}, {aruco_in_camera[1]:.3f}, {aruco_in_camera[2]:.3f}) 米")
-                    
-                    # 计算摄像机在aruco码坐标系中的坐标
-                    # 将旋转向量转换为旋转矩阵
-                    R, _ = cv2.Rodrigues(rvec)
-                    # 计算旋转矩阵的转置
-                    R_T = R.T
-                    # 计算摄像机在aruco码坐标系中的坐标
-                    camera_in_aruco = -R_T @ tvec
-                    camera_in_aruco = camera_in_aruco.flatten()
-                    print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
+                        
+                        # aruco码在摄像机坐标系中的坐标（就是tvec）
+                        aruco_in_camera = tvec.flatten()
+                        print(f"Marker ID: {marker_id}, 在摄像机坐标系中的坐标: ({aruco_in_camera[0]:.3f}, {aruco_in_camera[1]:.3f}, {aruco_in_camera[2]:.3f}) 米")
+                        
+                        # 计算摄像机在aruco码坐标系中的坐标
+                        # 将旋转向量转换为旋转矩阵
+                        R, _ = cv2.Rodrigues(rvec)
+                        # 计算旋转矩阵的转置
+                        R_T = R.T
+                        # 计算摄像机在aruco码坐标系中的坐标
+                        camera_in_aruco = -R_T @ tvec
+                        camera_in_aruco = camera_in_aruco.flatten()
+                        print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
                     
                     # 绘制相对位姿
                     cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.1)
+                    
+                    # 在图像上绘制校正后的坐标信息
+                    # 获取标记的左上角坐标作为文本位置
+                    if markerCorners[i].size > 0:
+                        corner_x = int(markerCorners[i][0][0][0])
+                        corner_y = int(markerCorners[i][0][0][1])
+                        
+                        # 准备要显示的文本
+                        if distance_calibration is not None:
+                            text = f"ID:{marker_id}\nX:{calibrated_aruco_in_camera[0]:.2f}\nY:{calibrated_aruco_in_camera[1]:.2f}\nZ:{calibrated_aruco_in_camera[2]:.2f}"
+                        else:
+                            text = f"ID:{marker_id}\nX:{tvec.flatten()[0]:.2f}\nY:{tvec.flatten()[1]:.2f}\nZ:{tvec.flatten()[2]:.2f}"
+                        
+                        # 绘制文本
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.4
+                        font_thickness = 1
+                        text_color = (0, 255, 0)  # 绿色
+                        line_type = cv2.LINE_AA
+                        
+                        # 逐行绘制文本
+                        lines = text.split('\n')
+                        for j, line in enumerate(lines):
+                            text_size = cv2.getTextSize(line, font, font_scale, font_thickness)[0]
+                            text_x = corner_x + 10
+                            text_y = corner_y + (j + 1) * (text_size[1] + 5)
+                            cv2.putText(undistorted_frame, line, (text_x, text_y), font, font_scale, text_color, font_thickness, line_type)
                 else:
                     print(f"Marker ID: {markerIds[i][0]} 位姿估计失败")
         else:
