@@ -80,7 +80,7 @@ def main():
         print("未找到距离标定参数，使用原始计算值")
     
     # 打开相机
-    cap = cv2.VideoCapture(0)  # 树莓派通常使用相机索引 0
+    cap = cv2.VideoCapture(1)  # 树莓派通常使用相机索引 0
     if not cap.isOpened():
         print("无法打开相机")
         return -1

@@ -113,7 +113,7 @@ def main():
         
         # 绘制检测结果
         if markerIds is not None and len(markerIds) > 0:
-            print(f"检测到 {len(markerIds)} 个标记")
+            # print(f"检测到 {len(markerIds)} 个标记")
             aruco.drawDetectedMarkers(undistorted_frame, markerCorners, markerIds)
             
             # 估计相机姿态
@@ -145,7 +145,7 @@ def main():
                     if distance_calibration is not None:
                         a, b = distance_calibration
                         calibrated_distance = a * distance + b
-                        print(f"Marker ID: {marker_id}, 原始距离: {distance:.3f} 米, 校正后距离: {calibrated_distance:.3f} 米")
+                        # print(f"Marker ID: {marker_id}, 原始距离: {distance:.3f} 米, 校正后距离: {calibrated_distance:.3f} 米")
                         
                         # 计算缩放因子
                         if distance > 0:
@@ -155,8 +155,8 @@ def main():
                         
                         # 校正aruco码在摄像机坐标系中的坐标
                         calibrated_aruco_in_camera = (tvec.flatten() * scale_factor)
-                        print(f"Marker ID: {marker_id}, 原始摄像机坐标系坐标: ({tvec.flatten()[0]:.3f}, {tvec.flatten()[1]:.3f}, {tvec.flatten()[2]:.3f}) 米")
-                        print(f"Marker ID: {marker_id}, 校正后摄像机坐标系坐标: ({calibrated_aruco_in_camera[0]:.3f}, {calibrated_aruco_in_camera[1]:.3f}, {calibrated_aruco_in_camera[2]:.3f}) 米")
+                        # print(f"Marker ID: {marker_id}, 原始摄像机坐标系坐标: ({tvec.flatten()[0]:.3f}, {tvec.flatten()[1]:.3f}, {tvec.flatten()[2]:.3f}) 米")
+                        # print(f"Marker ID: {marker_id}, 校正后摄像机坐标系坐标: ({calibrated_aruco_in_camera[0]:.3f}, {calibrated_aruco_in_camera[1]:.3f}, {calibrated_aruco_in_camera[2]:.3f}) 米")
                         
                         # 计算并校正摄像机在aruco码坐标系中的坐标
                         # 将旋转向量转换为旋转矩阵
@@ -168,14 +168,14 @@ def main():
                         camera_in_aruco = camera_in_aruco.flatten()
                         # 校正摄像机在aruco码坐标系中的坐标
                         calibrated_camera_in_aruco = camera_in_aruco * scale_factor
-                        print(f"Marker ID: {marker_id}, 原始aruco码坐标系坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
+                        # print(f"Marker ID: {marker_id}, 原始aruco码坐标系坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
                         print(f"Marker ID: {marker_id}, 校正后aruco码坐标系坐标: ({calibrated_camera_in_aruco[0]:.3f}, {calibrated_camera_in_aruco[1]:.3f}, {calibrated_camera_in_aruco[2]:.3f}) 米")
                     else:
-                        print(f"Marker ID: {marker_id}, 距离: {distance:.3f} 米")
+                        # print(f"Marker ID: {marker_id}, 距离: {distance:.3f} 米")
                         
                         # aruco码在摄像机坐标系中的坐标（就是tvec）
                         aruco_in_camera = tvec.flatten()
-                        print(f"Marker ID: {marker_id}, 在摄像机坐标系中的坐标: ({aruco_in_camera[0]:.3f}, {aruco_in_camera[1]:.3f}, {aruco_in_camera[2]:.3f}) 米")
+                        # print(f"Marker ID: {marker_id}, 在摄像机坐标系中的坐标: ({aruco_in_camera[0]:.3f}, {aruco_in_camera[1]:.3f}, {aruco_in_camera[2]:.3f}) 米")
                         
                         # 计算摄像机在aruco码坐标系中的坐标
                         # 将旋转向量转换为旋转矩阵
@@ -185,7 +185,7 @@ def main():
                         # 计算摄像机在aruco码坐标系中的坐标
                         camera_in_aruco = -R_T @ tvec
                         camera_in_aruco = camera_in_aruco.flatten()
-                        print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
+                        # print(f"Marker ID: {marker_id}, 摄像机在aruco码坐标系中的坐标: ({camera_in_aruco[0]:.3f}, {camera_in_aruco[1]:.3f}, {camera_in_aruco[2]:.3f}) 米")
                     
                     # 绘制相对位姿，缩小轴的大小以避免超出帧范围
                     cv2.drawFrameAxes(undistorted_frame, newCameraMatrix, np.zeros(5), rvec, tvec, 0.05)
@@ -227,7 +227,7 @@ def main():
         cv2.imshow("ArUco Detection (Undistorted)", undistorted_frame)
         
         # 按下 'q' 键退出循环
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord(' '):
             break
     
     # 释放资源
